@@ -1,0 +1,417 @@
+// Prisma schema for FleetTMS
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  DISPATCHER
+  DRIVER
+  ACCOUNTING
+  VIEW_ONLY
+}
+
+enum DriverStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum EquipmentType {
+  DRY_VAN
+  REEFER
+  FLATBED
+  POWER_ONLY
+  BOX_TRUCK
+  SPRINTER
+}
+
+enum LoadMode {
+  FTL
+  LTL
+  INTERMODAL
+}
+
+enum LoadStatus {
+  DRAFT
+  TENDERED
+  ACCEPTED
+  DISPATCHED
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
+enum StopType {
+  PICKUP
+  DELIVERY
+}
+
+enum DispatchStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TrackingEventType {
+  LOCATION_UPDATE
+  STATUS_CHANGE
+  CHECK_CALL
+  ARRIVED_AT_STOP
+  DEPARTED_STOP
+}
+
+enum DocumentType {
+  BOL
+  POD
+  RATE_CON
+  INVOICE
+  OTHER
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  VOID
+}
+
+enum AccessorialType {
+  LAYOVER
+  DETENTION
+  LUMPER
+  OTHER
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  domain    String?  @unique
+  settings  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  customers Customer[]
+  carriers  Carrier[]
+  drivers   Driver[]
+  equipment Equipment[]
+  locations Location[]
+  lanes     Lane[]
+  loads     Load[]
+  invoices  Invoice[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Customer {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  name           String
+  contactName    String?
+  contactEmail   String?
+  phone          String?
+  billingAddress String?
+  shippingAddress String?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  loads          Load[]
+}
+
+model Carrier {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  name          String
+  mcNumber      String?
+  dotNumber     String?
+  contactName   String?
+  contactEmail  String?
+  phone         String?
+  address       String?
+  insuranceInfo Json?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  drivers       Driver[]
+  dispatches    Dispatch[]
+}
+
+model Driver {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  carrierId     String?
+  carrier       Carrier? @relation(fields: [carrierId], references: [id])
+  name          String
+  phone         String?
+  email         String?
+  licenseNumber String?
+  licenseState  String?
+  status        DriverStatus @default(ACTIVE)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  dispatches    Dispatch[]
+}
+
+model Equipment {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  type           EquipmentType
+  trailerNumber  String?
+  plateNumber    String?
+  capacityWeight Int?
+  capacityVolume Int?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Location {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  name          String
+  addressLine1  String
+  addressLine2  String?
+  city          String
+  state         String
+  postalCode    String
+  country       String
+  latitude      Float?
+  longitude     Float?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  stops         LoadStop[]
+  originLanes   Lane[] @relation("OriginLane")
+  destLanes     Lane[] @relation("DestLane")
+}
+
+model Lane {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  tenant             Tenant   @relation(fields: [tenantId], references: [id])
+  originLocationId   String
+  destinationLocationId String
+  originLocation     Location @relation("OriginLane", fields: [originLocationId], references: [id])
+  destinationLocation Location @relation("DestLane", fields: [destinationLocationId], references: [id])
+  defaultRatePerMile Float?
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Load {
+  id               String   @id @default(cuid())
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id])
+  customerId       String?
+  customer         Customer? @relation(fields: [customerId], references: [id])
+  referenceNumber  String
+  customerReference String?
+  mode             LoadMode
+  equipmentType    EquipmentType
+  status           LoadStatus @default(DRAFT)
+  totalWeight      Int?
+  totalVolume      Int?
+  numberOfPieces   Int?
+  rateTotal        Decimal? @db.Numeric(12,2)
+  fuelSurcharge    Decimal? @db.Numeric(12,2)
+  accessorialTotal Decimal? @db.Numeric(12,2)
+  currency         String   @default("USD")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  stops            LoadStop[]
+  items            LoadItem[]
+  dispatches       Dispatch[]
+  rates            Rate[]
+  accessorials     AccessorialCharge[]
+  trackingEvents   TrackingEvent[]
+  documents        Document[]
+  invoices         Invoice[]
+}
+
+model LoadStop {
+  id             String   @id @default(cuid())
+  loadId         String
+  load           Load     @relation(fields: [loadId], references: [id])
+  tenantId       String
+  locationId     String
+  location       Location @relation(fields: [locationId], references: [id])
+  sequenceNumber Int
+  stopType       StopType
+  scheduledArrival   DateTime?
+  scheduledDeparture DateTime?
+  actualArrival      DateTime?
+  actualDeparture    DateTime?
+  instructions   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([loadId, sequenceNumber])
+}
+
+model LoadItem {
+  id         String   @id @default(cuid())
+  loadId     String
+  load       Load     @relation(fields: [loadId], references: [id])
+  tenantId   String
+  description String
+  weight     Int?
+  volume     Int?
+  pieces     Int?
+  nmfcCode   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Dispatch {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  loadId       String
+  load         Load     @relation(fields: [loadId], references: [id])
+  driverId     String?
+  driver       Driver?  @relation(fields: [driverId], references: [id])
+  carrierId    String?
+  carrier      Carrier? @relation(fields: [carrierId], references: [id])
+  assignedAt   DateTime @default(now())
+  acceptedAt   DateTime?
+  rejectedAt   DateTime?
+  status       DispatchStatus @default(PENDING)
+  plannedStart DateTime?
+  plannedEnd   DateTime?
+  notes        String?
+  trackingEvents TrackingEvent[]
+  carrierPayments CarrierPayment[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model TrackingEvent {
+  id         String   @id @default(cuid())
+  tenantId   String
+  loadId     String
+  load       Load     @relation(fields: [loadId], references: [id])
+  dispatchId String?
+  dispatch   Dispatch? @relation(fields: [dispatchId], references: [id])
+  eventType  TrackingEventType
+  latitude   Float?
+  longitude  Float?
+  timestamp  DateTime @default(now())
+  notes      String?
+  createdBy  String?
+  createdAt  DateTime @default(now())
+}
+
+model Rate {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  loadId        String
+  load          Load     @relation(fields: [loadId], references: [id])
+  baseRate      Decimal  @db.Numeric(12,2)
+  fuelSurcharge Decimal? @db.Numeric(12,2)
+  accessorialTotal Decimal? @db.Numeric(12,2)
+  currency      String   @default("USD")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model AccessorialCharge {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  loadId    String
+  load      Load     @relation(fields: [loadId], references: [id])
+  type      AccessorialType
+  amount    Decimal  @db.Numeric(12,2)
+  description String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Document {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  loadId     String
+  load       Load     @relation(fields: [loadId], references: [id])
+  type       DocumentType
+  fileName   String
+  storagePath String
+  uploadedBy String?
+  uploadedAt DateTime @default(now())
+}
+
+model Invoice {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  loadId     String
+  load       Load     @relation(fields: [loadId], references: [id])
+  invoiceNumber String
+  billedToCustomerId String?
+  billedToCustomer   Customer? @relation(fields: [billedToCustomerId], references: [id])
+  amount      Decimal  @db.Numeric(12,2)
+  currency    String   @default("USD")
+  status      InvoiceStatus @default(DRAFT)
+  issuedAt    DateTime @default(now())
+  dueDate     DateTime?
+  paidAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CarrierPayment {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  dispatchId String
+  dispatch  Dispatch @relation(fields: [dispatchId], references: [id])
+  carrierId String
+  carrier   Carrier  @relation(fields: [carrierId], references: [id])
+  amount    Decimal  @db.Numeric(12,2)
+  currency  String   @default("USD")
+  status    String   @default("PENDING")
+  scheduledPayDate DateTime?
+  paidAt    DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+@@index([tenantId], map: "idx_tenant")
