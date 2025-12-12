@@ -2,6 +2,35 @@
 
 Multi-tenant Transportation Management System for shippers, brokers, and carriers. Monorepo with TypeScript backend (Express + Prisma) and React + Vite frontend.
 
+```mermaid
+flowchart TD
+  subgraph Client
+    U[User] --> FE[React + Vite SPA]
+    FE -->|HTTP/JSON| API[/Express API/]
+  end
+
+  subgraph Platform
+    API --> PG[(PostgreSQL\nPrisma ORM)]
+    API --> REDIS[(Redis / cache hooks)]
+    API --> S3[(Document Storage\nLocal/S3 abstraction)]
+    API --> MQ[(Queue hooks\nKafka/RabbitMQ placeholder)]
+    API --> AUTH[(JWT Auth + Refresh)]
+    API --> OBS[Logging/Tracing/Metrics stubs]
+  end
+
+  subgraph Data
+    PG --> TENANTS[(Tenants/Users)]
+    PG --> MASTER[(Master Data\nCustomers/Carriers/Drivers/Equipment/Locations)]
+    PG --> LOADS[(Loads/Stops/Items/Dispatches/Tracking)]
+    PG --> BILLING[(Rates/Accessorials/Invoices)]
+    PG --> DOCS[(Documents)]
+    PG --> ANALYTICS[(Analytics summaries)]
+  end
+
+  S3 -.-> DOCS
+  MQ -.events-> API
+```
+
 ## Project Structure
 - `backend/` – Express API, Prisma schema/migrations, Jest tests
 - `frontend/` – Vite + React app, Tailwind styling, Vitest tests

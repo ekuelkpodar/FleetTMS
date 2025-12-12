@@ -108,6 +108,12 @@ model Tenant {
   lanes     Lane[]
   loads     Load[]
   invoices  Invoice[]
+  dispatches Dispatch[]
+  trackingEvents TrackingEvent[]
+  rates     Rate[]
+  accessorialCharges AccessorialCharge[]
+  documents Document[]
+  carrierPayments CarrierPayment[]
 }
 
 model User {
@@ -147,6 +153,7 @@ model Customer {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   loads          Load[]
+  billedInvoices Invoice[] @relation("InvoiceCustomer")
 }
 
 model Carrier {
@@ -166,6 +173,7 @@ model Carrier {
   updatedAt     DateTime @updatedAt
   drivers       Driver[]
   dispatches    Dispatch[]
+  carrierPayments CarrierPayment[]
 }
 
 model Driver {
@@ -249,9 +257,9 @@ model Load {
   totalWeight      Int?
   totalVolume      Int?
   numberOfPieces   Int?
-  rateTotal        Decimal? @db.Numeric(12,2)
-  fuelSurcharge    Decimal? @db.Numeric(12,2)
-  accessorialTotal Decimal? @db.Numeric(12,2)
+  rateTotal        Decimal? @db.Decimal(12, 2)
+  fuelSurcharge    Decimal? @db.Decimal(12, 2)
+  accessorialTotal Decimal? @db.Decimal(12, 2)
   currency         String   @default("USD")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -325,6 +333,7 @@ model Dispatch {
 model TrackingEvent {
   id         String   @id @default(cuid())
   tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
   loadId     String
   load       Load     @relation(fields: [loadId], references: [id])
   dispatchId String?
@@ -344,9 +353,9 @@ model Rate {
   tenant        Tenant   @relation(fields: [tenantId], references: [id])
   loadId        String
   load          Load     @relation(fields: [loadId], references: [id])
-  baseRate      Decimal  @db.Numeric(12,2)
-  fuelSurcharge Decimal? @db.Numeric(12,2)
-  accessorialTotal Decimal? @db.Numeric(12,2)
+  baseRate      Decimal  @db.Decimal(12, 2)
+  fuelSurcharge Decimal? @db.Decimal(12, 2)
+  accessorialTotal Decimal? @db.Decimal(12, 2)
   currency      String   @default("USD")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -359,7 +368,7 @@ model AccessorialCharge {
   loadId    String
   load      Load     @relation(fields: [loadId], references: [id])
   type      AccessorialType
-  amount    Decimal  @db.Numeric(12,2)
+  amount    Decimal  @db.Decimal(12, 2)
   description String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -386,8 +395,8 @@ model Invoice {
   load       Load     @relation(fields: [loadId], references: [id])
   invoiceNumber String
   billedToCustomerId String?
-  billedToCustomer   Customer? @relation(fields: [billedToCustomerId], references: [id])
-  amount      Decimal  @db.Numeric(12,2)
+  billedToCustomer   Customer? @relation("InvoiceCustomer", fields: [billedToCustomerId], references: [id])
+  amount      Decimal  @db.Decimal(12, 2)
   currency    String   @default("USD")
   status      InvoiceStatus @default(DRAFT)
   issuedAt    DateTime @default(now())
@@ -405,7 +414,7 @@ model CarrierPayment {
   dispatch  Dispatch @relation(fields: [dispatchId], references: [id])
   carrierId String
   carrier   Carrier  @relation(fields: [carrierId], references: [id])
-  amount    Decimal  @db.Numeric(12,2)
+  amount    Decimal  @db.Decimal(12, 2)
   currency  String   @default("USD")
   status    String   @default("PENDING")
   scheduledPayDate DateTime?
@@ -413,5 +422,3 @@ model CarrierPayment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
-
-@@index([tenantId], map: "idx_tenant")

@@ -23,7 +23,7 @@ customerRouter.get('/', verifyAuth, async (req: AuthRequest, res, next) => {
     const search = (req.query.search as string) || '';
     const where = {
       tenantId: req.user!.tenantId,
-      name: { contains: search, mode: 'insensitive' },
+      name: { contains: search, mode: 'insensitive' as const },
     };
     const [data, total] = await Promise.all([
       prisma.customer.findMany({ where, skip, take, orderBy: { createdAt: 'desc' } }),

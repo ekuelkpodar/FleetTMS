@@ -23,7 +23,7 @@ carrierRouter.get('/', verifyAuth, async (req: AuthRequest, res, next) => {
   try {
     const { page, pageSize, skip, take } = toPaginationParams(req.query);
     const search = (req.query.search as string) || '';
-    const where = { tenantId: req.user!.tenantId, name: { contains: search, mode: 'insensitive' } };
+    const where = { tenantId: req.user!.tenantId, name: { contains: search, mode: 'insensitive' as const } };
     const [data, total] = await Promise.all([
       prisma.carrier.findMany({ where, skip, take, orderBy: { createdAt: 'desc' } }),
       prisma.carrier.count({ where }),

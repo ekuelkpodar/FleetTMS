@@ -108,7 +108,7 @@ loadRouter.post('/', verifyAuth, validateBody(loadSchema), async (req: AuthReque
         accessorialTotal: req.body.accessorialTotal,
         currency: req.body.currency || 'USD',
         stops: {
-          create: req.body.stops.map((s) => ({
+          create: req.body.stops.map((s: z.infer<typeof stopSchema>) => ({
             ...s,
             tenantId: req.user!.tenantId,
             scheduledArrival: s.scheduledArrival ? new Date(s.scheduledArrival) : undefined,
@@ -116,10 +116,13 @@ loadRouter.post('/', verifyAuth, validateBody(loadSchema), async (req: AuthReque
           })),
         },
         items: {
-          create: req.body.items?.map((item) => ({ ...item, tenantId: req.user!.tenantId })) || [],
+          create: req.body.items?.map((item: z.infer<typeof itemSchema>) => ({ ...item, tenantId: req.user!.tenantId })) || [],
         },
         accessorials: {
-          create: req.body.accessorials?.map((a) => ({ ...a, tenantId: req.user!.tenantId })) || [],
+          create:
+            req.body.accessorials?.map(
+              (a: { type: AccessorialType; amount: number; description?: string }) => ({ ...a, tenantId: req.user!.tenantId }),
+            ) || [],
         },
       },
       include: { stops: true, items: true, accessorials: true },
@@ -182,7 +185,8 @@ loadRouter.post('/:id/rate/calculate', verifyAuth, validateBody(rateSchema), asy
   try {
     const load = await prisma.load.findFirst({ where: { id: req.params.id, tenantId: req.user!.tenantId } });
     if (!load) return res.status(404).json({ error: { message: 'Load not found' } });
-    const accessorialTotal = req.body.accessorials?.reduce((sum, a) => sum + a.amount, 0) || 0;
+    const accessorialTotal =
+      req.body.accessorials?.reduce((sum: number, a: { amount: number }) => sum + a.amount, 0) || 0;
     const total = req.body.baseRate + (req.body.fuelSurcharge || 0) + accessorialTotal;
     await prisma.rate.create({
       data: {

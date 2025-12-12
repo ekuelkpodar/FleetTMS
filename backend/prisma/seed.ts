@@ -67,7 +67,7 @@ async function main() {
         ],
       },
     },
-    include: { customers: true, locations: true },
+    include: { customers: true, locations: true, drivers: true, carriers: true },
   });
 
   const [customer] = tenantA.customers;
