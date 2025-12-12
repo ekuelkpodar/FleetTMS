@@ -28,7 +28,7 @@ flowchart TD
   end
 
   S3 -.-> DOCS
-  MQ -.events-> API
+  MQ -. events .-> API
 ```
 
 ## Project Structure
